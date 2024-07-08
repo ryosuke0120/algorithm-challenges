@@ -1,0 +1,50 @@
+/* styles.css */
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
+header,
+footer {
+  background-color: #333;
+  color: white;
+  text-align: center;
+  padding: 1em 0;
+}
+
+.container {
+  display: flex;
+  flex: 1;
+}
+
+.sidebar {
+  background-color: #f4f4f4;
+  padding: 1em;
+}
+
+.left {
+  flex: 1;
+}
+
+.right {
+  flex: 1;
+}
+
+.content {
+  flex: 3;
+  padding: 1em;
+  background-color: #fff;
+}
+
+@media (max-width: 768px) {
+  .container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    order: -1;
+  }
+}
