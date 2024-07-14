@@ -1,6 +1,7 @@
 import tkinter as tk
 from typing import Callable, Dict, List, Union, Optional
 
+
 class GameObject:
     """Base class for all game objects."""
     def __init__(self):
@@ -12,6 +13,7 @@ class GameObject:
     def bind_click(self, canvas: tk.Canvas, item_id: int):
         if self.onclick:
             canvas.tag_bind(item_id, "<Button-1>", lambda event: self.onclick())
+
 
 class Rect(GameObject):
     def __init__(self, items: List[GameObject], width: int, height: int):
@@ -26,6 +28,7 @@ class Rect(GameObject):
             item.draw(canvas, x, y)
         self.bind_click(canvas, rect_id)
         return rect_id
+
 
 class Text(GameObject):
     def __init__(self, text: str):
@@ -44,6 +47,7 @@ class Text(GameObject):
         self.bind_click(canvas, text_id)
         return text_id
 
+
 class CanvasWrapper:
     def __init__(self, canvas: tk.Canvas):
         self.canvas = canvas
@@ -58,6 +62,7 @@ class CanvasWrapper:
         obj = self.objects[name]
         if hasattr(obj, 'onclick') and callable(obj.onclick):
             obj.onclick()
+
 
 class FrameWrapper:
     def __init__(self, root: tk.Tk, frame: tk.Frame):
@@ -78,6 +83,7 @@ class FrameWrapper:
 
     def get_widget(self, name: str) -> Union[tk.Widget, CanvasWrapper]:
         return self.widgets[name]
+
 
 class TkWrapper:
     def __init__(self, title: str = "Tkinter Wrapper", width: int = 800, height: int = 600):
@@ -110,6 +116,7 @@ class TkWrapper:
     def quit(self):
         self.root.quit()
 
+
 class Card(GameObject):
     def __init__(self, suit: str, number: str):
         super().__init__()
@@ -123,22 +130,18 @@ class Card(GameObject):
         ], width=50, height=70)
         return item.draw(canvas, x, y)
 
+
 if __name__ == "__main__":
     app = TkWrapper(title="Poker Game", width=800, height=600)
 
-    # 各画面をセットアップ
-    app.add_frame("main")
-    app.add_frame("game")
-    app.add_frame("settings")
-
     # メイン画面
-    main_frame = app.get_frame("main")
+    main_frame = app.add_frame("main")
     main_frame.add_button("Poker Game", font=("Helvetica", 24), action=lambda: app.show_frame("game"))
     main_frame.add_button("Settings", action=lambda: app.show_frame("settings"))
     main_frame.add_button("Exit", action=app.quit)
 
     # ゲーム画面
-    game_frame = app.get_frame("game")
+    game_frame = app.add_frame("game")
     canvas = game_frame.add_canvas("card_canvas", width=600, height=400, bg="green")
     game_frame.add_button("Deal Cards", action=lambda: print("Deal Cards"))
     game_frame.add_button("Back to Main Menu", action=lambda: app.show_frame("main"))
@@ -150,7 +153,7 @@ if __name__ == "__main__":
         canvas.add(f"player_card_{i}", card, x=70*i, y=100)
 
     # 設定
-    settings_frame = app.get_frame("settings")
+    settings_frame = app.add_frame("settings")
     settings_frame.add_button("Back to Main Menu", action=lambda: app.show_frame("main"))
 
     app.run("main")

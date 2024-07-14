@@ -84,7 +84,7 @@ class VStack(GameObject):
         return frame
 
 
-class Root:
+class App:
     def __init__(self, title: str, width: int, height: int):
         self.tk = tk.Tk()
         self.tk.title(title)
@@ -98,12 +98,12 @@ class Root:
 
 
 if __name__ == "__main__":
-    root = Root("Sample", 800, 600)
+    app = App("Sample", 800, 600)
     component = VStack([
         Text("Hello", borderwidth=1, background="green"),
         Text("World", borderwidth=2),
         Text("Everyone", borderwidth=2),
     ], spacing=10, padding=20, bordercolor="red", borderwidth=2, background="blue")
     # component = Text("Hello")
-    root.add(component)
-    root.mainloop()
+    app.add(component)
+    app.mainloop()
