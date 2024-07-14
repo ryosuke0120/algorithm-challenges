@@ -5,32 +5,38 @@ from typing import Literal, Optional
 
 class App:
 
-    def __init__(self, title="App", width=800, height=600):
+    def __init__(self, title="App", w=800, h=600):
         root = tk.Tk()
         root.title(title)
-        root.geometry(f"{width}x{height}")
+        root.geometry(f"{w}x{h}")
         self.root = root
 
-        self.width = width
-        self.height = height
+        self.w = w
+        self.h = h
 
         self.canvases: dict[str, Canvas] = {}
-        self.current_canvas = None
+        self.current_canvas_name = None
 
     def canvas(self, name: str):
         # 存在しない場合は新規作成
         if name not in self.canvases:
-            c = Canvas(self.root, width=self.width, height=self.height)
+            c = Canvas(self.root, width=self.w, height=self.h)
             self.canvases[name] = c
         return self.canvases[name]
 
     def activate(self, name):
-        if self.current_canvas:
-            self.canvases[name].inner_canvas.pack_forget()
+        if self.current_canvas_name:
+            print(f"Deactivate: {self.current_canvas_name}")
+            self.canvases[self.current_canvas_name].inner_canvas.pack_forget()
+        print(f"Activate: {name}")
         self.canvases[name].inner_canvas.pack(fill=tk.BOTH, expand=True)
         self.canvases[name].paint()
 
+        # 切り替え
+        self.current_canvas_name = name
+
     def run(self, initial: str):
+        self.current_canvas_name = initial
         self.activate(initial)
         self.root.mainloop()
 
@@ -77,10 +83,10 @@ class GameObject:
 
 
 class Box(GameObject):
-    def __init__(self, name, *, width=100, height=30):
+    def __init__(self, *, w=100, h=30, name: str = "box"):
         super().__init__(name)
-        self.width = width
-        self.height = height
+        self.width = w
+        self.height = h
         self.fill = 'white'
         self.outline = 'black'
         self.line_width = 1
@@ -89,7 +95,6 @@ class Box(GameObject):
         self.active_line_width = None
 
     def paint(self, canvas: tk.Canvas, x: int, y: int):
-        print(self.name, self.inner_anchor)
         # アンカーによって位置を調整
         if self.inner_anchor == "nw":
             offset_x = 0
@@ -115,42 +120,85 @@ class Box(GameObject):
 
 
 class Text(GameObject):
-    def __init__(self, name, *, text: str):
+    def __init__(self, text: str, *, name: str = "text", color: str = "black"):
         super().__init__(name)
         self.text = text
         self.font_family = "Helvetica"
         self.font_size = 12
+        self.hover_color = color
+        self.normal_color = color
 
     def paint(self, canvas: tk.Canvas, x: int, y: int):
         self.id = canvas.create_text(
             x, y, text=self.text, font=tkfont.Font(family=self.font_family, size=self.font_size),
-            fill='black', anchor=self.inner_anchor
+            fill=self.normal_color, anchor=self.inner_anchor
         )
+        # ホバーイベントのバインディング
+        canvas.tag_bind(self.id, '<Enter>', self._on_enter)
+        canvas.tag_bind(self.id, '<Leave>', self._on_leave)
 
-    def font(self, family: str, size: int):
-        self.font_family = family
-        self.font_size = size
+    def font(self, *, family: Optional[str] = None, size: Optional[int] = None):
+        if family:
+            self.font_family = family
+        if size:
+            self.font_size = size
         return self
 
-    def resize(self, canvas: Canvas):
+    def color(self, *, normal: Optional[str] = None, hover: Optional[str] = None):
+        if normal:
+            self.normal_color = normal
+        if hover:
+            self.hover_color = hover
+        return self
+
+    def resize(self, canvas: tk.Canvas):
         font = tkfont.Font(family=self.font_family, size=self.font_size)
         self.width = font.measure(self.text)
         self.height = font.metrics("linespace")
 
+    def _on_enter(self, event):
+        canvas = event.widget
+        canvas.itemconfig(self.id, fill=self.hover_color)  # ホバー時に色を変更
 
-# BoxとTextを組み合わせてButtonを作成
+    def _on_leave(self, event):
+        canvas = event.widget
+        canvas.itemconfig(self.id, fill=self.normal_color)  # 元の色に戻す
+
+
 class Button(GameObject):
 
-    def __init__(self, name, *, text, action: callable, width=200, height=30):
+    def __init__(self, text: str, action: callable, *, width=200, height=30, name: str = "button"):
         super().__init__(name)
         self.width = width
         self.height = height
         self.action = action
-        self.obj_text = Text("text", text=text)
-        self.obj_box = VStack("box", [self.obj_text], width=width).anchor("center").justify("center")
+        self.obj_text = Text(text=text, name="text")
+        self.obj_box = VStack([self.obj_text], w=width, h=height, name="box")._anchor("center").justify("center")
         self.obj_box = self.obj_box.normal(
-            fill='white', outline='#f0f0f0', width=1
-        ).hover(fill="#f0f0f0", outline="#f0f0f0", width=1)
+            fill='white', outline='#f0f0f0', width=0
+        ).hover(fill="#f0f0f0", outline="#f0f0f0", width=0)
+        self.font_size = 12
+        self.font_family = "Helvetica"
+
+    def font(self, *, family: Optional[str] = None, size: Optional[int] = None):
+        if family:
+            self.font_family = family
+        if size:
+            self.font_size = size
+        self.obj_text.font(family=self.font_family, size=self.font_size)
+        return self
+
+    def normal(self, *, text_color: Optional[str], fill: Optional[str] = None, outline: Optional[str] = None, width: Optional[int] = None):
+        self.obj_box.normal(fill=fill, outline=outline, width=width)
+        if text_color:
+            self.obj_text.color(normal=text_color)
+        return self
+
+    def hover(self, *, text_color: Optional[str], fill: Optional[str] = None, outline: Optional[str] = None, width: Optional[int] = None):
+        self.obj_box.hover(fill=fill, outline=outline, width=width)
+        if text_color:
+            self.obj_text.color(hover=text_color)
+        return self
 
     def paint(self, canvas: tk.Canvas, x: int, y: int):
         # ボタンのサイズを設定
@@ -187,8 +235,10 @@ class Button(GameObject):
 
 
 class Stack(GameObject):
-    def __init__(self, name, children: list[GameObject], *, spacing: int = 0, padding: int = 0):
+    def __init__(self, children: list[GameObject], *, w, h, s: int = 0, p: int = 0, name: str = "stack"):
         super().__init__(name)
+        self.width = w
+        self.height = h
 
         # 子要素の設定
         self.children = children
@@ -196,8 +246,8 @@ class Stack(GameObject):
             child.parent = self
 
         # スペース & 余白
-        self.spacing = spacing
-        self.padding = padding
+        self.spacing = s
+        self.padding = p
 
         # 通常
         self.fill = 'white'
@@ -213,23 +263,50 @@ class Stack(GameObject):
         self.anchor_type = "topLeft"
         self.justify_type = None
 
-    def _resize_self(self):
-        raise NotImplementedError("Subclasses should implement this method")
+    # def _resize_self(self):
+    #     raise NotImplementedError("Subclasses should implement this method")
 
     def resize(self, canvas: Canvas):
         # 自分のリサイズ
-        self._resize_self()
+        # self._resize_self()
 
         # 子要素のリサイズ
         for child in self.children:
             child.resize(canvas)
 
-    def anchor(self, anchor: Literal[
+    def _anchor(self, anchor: Literal[
             "topLeft", "top", "topRight",
             "left", "center", "right",
             "bottomLeft", "bottom", "bottomRight"]):
         self.anchor_type = anchor
         return self
+
+    def anchor_top_left(self):
+        return self._anchor("topLeft")
+
+    def anchor_top(self):
+        return self._anchor("top")
+
+    def anchor_top_right(self):
+        return self._anchor("topRight")
+
+    def anchor_left(self):
+        return self._anchor("left")
+
+    def anchor_center(self):
+        return self._anchor("center")
+
+    def anchor_right(self):
+        return self._anchor("right")
+
+    def anchor_bottom_left(self):
+        return self._anchor("bottomLeft")
+
+    def anchor_bottom(self):
+        return self._anchor("bottom")
+
+    def anchor_bottom_right(self):
+        return self._anchor("bottomRight")
 
     def anchor_padding_offset(self, x: int, y: int):
 
@@ -278,14 +355,13 @@ class Stack(GameObject):
     def _paint_children(self, canvas: tk.Canvas, x: int, y: int):
         raise NotImplementedError("Subclasses should implement this method")
 
-    def hover(self, *, fill=None, outline=None, width=None):
+    def hover(self, *, fill: Optional[str] = None, outline: Optional[str] = None, width: Optional[int] = None):
         if fill:
             self.active_fill = fill
         if outline:
             self.active_outline = outline
         if width:
             self.active_line_width = width
-
         return self
 
     def normal(self, *, fill: Optional[str] = None, outline: Optional[str] = None, width: Optional[int] = None):
@@ -299,13 +375,14 @@ class Stack(GameObject):
 
 
 class VStack(Stack):
-    def __init__(self, name, children: list[GameObject], *, width: int, spacing: int = 0, padding: int = 0):
-        super().__init__(name, children, spacing=spacing, padding=padding)
-        self._fixed_width = width
+    # def __init__(self, children: list[GameObject], *, w: int, h: int, s: int = 0, p: int = 0, name: str = "vstack"):
+    #     super().__init__(children, spacing=s, padding=p, name=name)
+    #     self._fixed_width = w
+    #     self._fixed_height = h
 
-    def _resize_self(self):
-        self.width = self._fixed_width
-        self.height = self.parent.height if self.parent else canvas.height
+    # def _resize_self(self):
+    #     self.width = self._fixed_width
+    #     self.height = self._fixed_height
 
     def inner_size(self):
         total_height = sum([child.height for child in self.children])
@@ -365,13 +442,14 @@ class VStack(Stack):
 
 
 class HStack(Stack):
-    def __init__(self, name, children: list[GameObject], *, height: int, spacing: int = 0, padding: int = 0):
-        super().__init__(name, children, spacing=spacing, padding=padding)
-        self._fixed_height = height
+    # def __init__(self, children: list[GameObject], *, h: int, s: int = 0, p: int = 0, name: str = "hstack"):
+    #     super().__init__(children, spacing=s, padding=p, name=name)
+    #     self._fixed_height = h
+    #     self._fixed_height = h
 
-    def _resize_self(self):
-        self.width = self.parent.width if self.parent else canvas.width
-        self.height = self._fixed_height
+    # def _resize_self(self):
+    #     self.width = self.parent.width if self.parent else canvas.width
+    #     self.height = self._fixed_height
 
     def inner_size(self):
         total_width = sum([child.width for child in self.children])
@@ -387,21 +465,59 @@ class HStack(Stack):
             x += child.width + self.spacing
 
 
+def BlackButton(text, action):
+    return Button(text, action=action).font(size=18).normal(
+        text_color="white", fill="#333333", outline="#333333", width=0).hover(
+        text_color="white", fill="#444444", outline="#444444", width=0)
+
+
+SUIT = Literal["♠", "♥", "♦", "♣"]
+NUMBER = Literal["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
+
+
+def Card(number: NUMBER, suit: SUIT):
+    color = "black" if suit in ["♠", "♣"] else "red"
+    return VStack([
+        Text(str(number)).font(size=16).color(normal=color, hover=color),
+        Text(suit).font(size=16).color(normal=color, hover=color),
+    ], w=50, h=70, s=10, p=10).normal(fill="white", outline=color, width=1).anchor_center().justify("center")
+
+
+def CardField():
+    return HStack([
+        Card("A", "♠"),
+        Card("2", "♥"),
+        Card("3", "♦"),
+        Card("4", "♣"),
+        Card("5", "♠"),
+    ], w=300, h=80, s=10).normal(fill="#a6b724")
+
+
 if __name__ == "__main__":
-    app = App(title="Poker Game", width=800, height=600)
+    app = App(title="Poker Game", w=800, h=600)
     canvas = app.canvas("main")
     canvas.body(
-        HStack("buttons", [
-            VStack("left", [
-                Box("button1", width=100, height=30),
-                Button("button2", text="Deal", action=lambda: print("Deal")),
-                Text("title", text="Poker Game").font("Helvetica", 24),
-                Text("description", text="This is a poker game.").font("Helvetica", 12),
-            ], width=300, padding=10, spacing=10).normal(fill="#a6b724").anchor("topRight"),
-            VStack("right", [
-                Text("player", text="Player: 1000"),
-                Text("cpu", text="CPU: 1000")
-            ], width=400, spacing=0, padding=10).normal(fill="#348699"),
-        ], height=app.height, spacing=20, padding=10)
+        VStack([
+            Text("Poker Game").font(size=46).color(normal="black"),
+            BlackButton("Start", lambda: app.activate("game")),
+            BlackButton("Quit", lambda: app.quit())
+        ], w=app.w, h=app.h, s=30).normal(fill="#348699").anchor_center()
+    )
+    canvas = app.canvas("game")
+    canvas.body(
+        HStack([
+            VStack([
+                CardField(),
+                BlackButton("Deal", lambda: print("Deal")),
+                BlackButton("Fold", lambda: print("Fold")),
+                Text("Poker Game").font(size=24).color(normal="black", hover="red"),
+                Text("This is a poker game.").font(size=12),
+            ], w=400, h=app.h, p=10, s=10).normal(fill="#a6b724").anchor_top_left(),
+            VStack([
+                Text("Player: 1000"),
+                Text("CPU: 1000"),
+                Button("Back to menu", lambda: app.activate("main")),
+            ], w=400, h=app.h, s=0, p=10).normal(fill="#348699"),
+        ], h=app.h, w=app.w, s=20, p=10)
     )
     app.run("main")
